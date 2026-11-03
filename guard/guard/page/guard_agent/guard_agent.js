@@ -187,7 +187,8 @@ frappe.pages["guard-agent"].on_page_load = function (wrapper) {
 			.join("");
 		// One action: the next step the reader can take. The prompt never goes into the DOM; the button
 		// copies it straight to the clipboard.
-		const action = `<button class="btn btn-${prompt ? "default" : "primary"} btn-sm mt-4"
+		// The wrapper sets the top margin, so the button lines up when it sits next to the copy button.
+		const action = `<button class="btn btn-${prompt ? "default" : "primary"} btn-sm"
 			data-action="prompt">${prompt ? __("New setup prompt") : __("Get the setup prompt")}</button>`;
 		const setup = prompt
 			? `<div class="mt-4">
@@ -197,7 +198,7 @@ frappe.pages["guard-agent"].on_page_load = function (wrapper) {
 				<p class="gc-muted mt-2">${__(
 					"Paste the prompt into your agent. Guard never shows the token: it is in the prompt only, and your agent keeps it in its MCP config."
 				)}</p>`
-			: action;
+			: `<div class="mt-4">${action}</div>`;
 		$body.html(`
 			<p class="gc-prose">${__(
 				"Guard reviews your change before you push, with the agent you already use. There is nothing to install: your agent reads the team rules, the code graph of every repository and what earlier reviews found from Guard over MCP, and reviews with its own model."
