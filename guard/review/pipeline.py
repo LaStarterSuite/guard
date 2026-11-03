@@ -663,6 +663,9 @@ class ReviewPipeline:
 	def run_agents(self, run: ReviewRun, built: context.BuiltContext) -> None:
 		from guard.guard.doctype.review_settings.review_settings import get_effective
 
+		route = guard_settings.gateway().route(run.tier)
+		# Set before a restored checkpoint returns: that review has a footer too.
+		run.model = route.model if route.online else ""
 		team = db.value("Code Repository", run.repository, "team") if run.repository else None
 		risk = str(get_effective(team).get("risk_definitions") or "")
 		system = prompts.system_prompt(int(run.settings.get("strictness") or 2), "", risk)

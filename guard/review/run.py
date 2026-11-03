@@ -127,6 +127,8 @@ class ReviewRun:
 	changed: list[ChangedEntity] = field(default_factory=list)
 	blast: BlastRadius | None = None
 	tier: str = "base"
+	# The model of the review agents, for the footer. Empty when no model can answer them.
+	model: str = ""
 	# Offline mode was on when the review started: no agent runs, and the review costs no credits.
 	offline: bool = False
 	# Offline for this review only: an AI provider is down (`ReviewPipeline.falls_back`).

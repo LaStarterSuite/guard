@@ -348,7 +348,7 @@ The summary comment starts with the marker `<!-- guard:summary -->`. On a re-rev
 
 (mermaid block)
 
-<sub>Reviews (2) · Last reviewed commit: [message](link) · [Re-trigger](link) · [Fix all](link)</sub>
+<sub>Reviews (2) · Last reviewed commit: [message](link) · Reviewed by `model` · [Re-trigger](link) · [Fix all](link)</sub>
 ```
 
 - One headline line is always visible: confidence score, risk, finding counts and blast radius.
@@ -356,6 +356,7 @@ The summary comment starts with the marker `<!-- guard:summary -->`. On a re-rev
 - Sections are collapsed by default, including the diagram. A collapsible section is wrapped in `<details>`. `open` is set when the section is open by default.
 - A re-review posts P2 findings only on lines added since the last reviewed commit.
 - The summary explains the change in at most 4 bullets. It does not repeat the findings. A finding body is at most 3 sentences.
+- The footer names the model of the review agents. It shows no model when none read the code: offline mode, an outage, or a review with the graph alone.
 - `hide_footer` removes the footer.
 - `update_description` writes the same content into the description between `<!-- guard:start -->` and `<!-- guard:end -->`.
 - Plus and apex reviews show the tier next to the score.

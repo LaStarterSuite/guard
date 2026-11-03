@@ -87,6 +87,7 @@ class TestPipeline(PullRequestCase):
 		self.assertIn("<summary><b>Impact</b></summary>", summary)
 		self.assertIn("-.->|may break|", summary)
 		self.assertIn("Reviews (1)", summary)
+		self.assertNotIn("Reviewed by", summary)  # the test site has no AI provider
 		self.assertEqual(self.adapter.named("status"), ["queued", "pending", "failure"])
 		self.assertIn("+1", self.adapter.named("react"))
 
@@ -1873,6 +1874,35 @@ class TestApexAreas(IntegrationTestCase):
 		with patch("guard.settings.gateway", return_value=gateway):
 			self.assertEqual(verify.check_tier("apex"), "apex")
 			self.assertEqual(verify.check_tier("plus"), "plus")
+
+	def test_the_footer_names_the_model_that_reviewed(self):
+		from guard.review import render
+
+		run = ReviewRun(None, None, "", lambda path: "a = 1", lambda path: None, lambda path: [], "", "")
+		run.tier = "plus"
+		run.files = parse_diff(
+			"diff --git a/app/a.py b/app/a.py\n--- a/app/a.py\n+++ b/app/a.py\n@@ -1 +1 @@\n-a = 1\n+a = 2\n"
+		)
+		# A backtick in the name must not break the code span.
+		models = {"base": "base-model", "plus": "plus-`model"}
+		gateway = GatewayConfig(models, {"gw": AIProviderConfig("gw", "https://gw", "k", "anthropic")}, "gw")
+		pipeline = ReviewPipeline.__new__(ReviewPipeline)
+		pipeline.check_cancel = lambda lock=False: None
+		pipeline.current = None
+		pipeline.started = time.time()
+		pipeline.timeout = 0
+		respond = scripted([[("submit_review", {"summary": "s", "confidence_score": 5})]])
+		with patch("guard.settings.gateway", return_value=gateway), use_responder(respond):
+			pipeline.agent(run, BuiltContext(ContextPack()))
+		self.assertIn("Reviewed by `plus-model`", render.summary(run, [], 1, {}))
+		# The agents took no turn: no model read the code.
+		run.turns = 0
+		self.assertNotIn("Reviewed by", render.summary(run, [], 1, {}))
+		# A model without an AI provider answers nothing.
+		gateway.ai_providers = {}
+		with patch("guard.settings.gateway", return_value=gateway), use_responder(respond):
+			pipeline.agent(run, BuiltContext(ContextPack()))
+		self.assertEqual(run.model, "")
 
 
 DEDICATED = {name: 300 for name in ("short", "default", "long", *jobs.REVIEW_QUEUES)}

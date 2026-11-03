@@ -260,6 +260,9 @@ def _footer(run: ReviewRun, review_number: int) -> str:
 		if commit_url
 		else f"Last reviewed commit: {message}",
 	]
+	# Only when the agents took turns: a review with the graph alone had no model.
+	if run.model and run.turns:
+		parts.append(f"Reviewed by `{run.model.replace('`', '')}`")
 	if run.pr is not None:
 		parts.append(f"[Re-trigger]({links.retrigger(str(run.pr.name))})")
 		parts.append(f"[Fix all]({links.fix_all(str(run.pr.name))})")
