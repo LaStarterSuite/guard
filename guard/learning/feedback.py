@@ -108,15 +108,15 @@ def record_verdict(finding: str, user: str, sentiment: str, reason: str) -> str:
 	from a reply in the thread: it counts as a downvote, and the memory writer reads the reason.
 
 	Return what Guard did: learned, updated (a new reason for the same finding), kept (the same reason),
-	refused (the user fails `teach_permission`) or off (learning is off).
+	refused (the user fails `teach_permission`), no_login (the setting needs the GitHub login of the
+	user, and their Guard User has none) or off (learning is off).
 	"""
 	if sentiment not in REJECTIONS or not learning_on():
 		return "off"
 	row = db.values("Review Finding", finding, ("pull_request", "repository")) or {}
 	login = str(db.value("Guard User", {"user": user}, "github_login") or "")
-	# The same rule as for a reply on GitHub: a learned memory reaches every later review of the team.
-	if not permissions.allowed("teach", login, str(row.get("repository") or "")):
-		return "refused"
+	if refusal := _verdict_refusal(login, str(row.get("repository") or "")):
+		return refusal
 	ref = f"agent:{user}"
 	if earlier := _recorded(finding, "Reply", ref):
 		if db.values("Review Feedback", earlier, ("sentiment", "body")) == {
@@ -131,6 +131,17 @@ def record_verdict(finding: str, user: str, sentiment: str, reason: str) -> str:
 	count_votes(finding)
 	memory_writer.enqueue(doc)
 	return "learned"
+
+
+def _verdict_refusal(login: str, repository: str) -> str | None:
+	"""Why the signed-in user of a verdict cannot teach Guard, or None when they can. The rule is the
+	one for a reply on GitHub, because a learned memory reaches every later review of the team. But the
+	user signed in to this site, so they have a Guard account and pass "Guard users" without a login."""
+	if permissions.mode("teach") in ("Everyone", "Guard users"):
+		return None
+	if not login:
+		return "no_login"
+	return None if permissions.allowed("teach", login, repository) else "refused"
 
 
 def record_mention(pull_request: str, comment: ProviderComment, text: str) -> str | None:

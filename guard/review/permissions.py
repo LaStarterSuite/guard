@@ -17,6 +17,11 @@ KINDS = {
 }
 
 
+def mode(kind: str) -> str:
+	"""The setting for this kind of interaction: Everyone, Organization members or Guard users."""
+	return getattr(guard_settings.settings(), KINDS[kind], None) or "Everyone"
+
+
 def allowed(kind: str, login: str, repository: str) -> bool:
 	"""True when the login passes the setting for this kind of interaction. False when the provider
 	cannot tell."""
@@ -28,10 +33,10 @@ def allowed(kind: str, login: str, repository: str) -> bool:
 
 def passes(kind: str, login: str, repository: str) -> bool:
 	"""As `allowed`, but raise ProviderError when the provider cannot tell if the login is a member."""
-	mode = getattr(guard_settings.settings(), KINDS[kind], None) or "Everyone"
-	if mode == "Everyone":
+	setting = mode(kind)
+	if setting == "Everyone":
 		return True
-	if mode == "Guard users":
+	if setting == "Guard users":
 		return bool(login) and bool(frappe.db.exists("Guard User", {"github_login": login}))
 	return member_or_writer(repository, login)
 
@@ -54,10 +59,10 @@ def member_or_writer(repository: str, login: str) -> bool:
 
 def who(kind: str, repository: str) -> str:
 	"""The people who pass the setting for this kind of interaction, for a message to a person."""
-	mode = getattr(guard_settings.settings(), KINDS[kind], None) or "Everyone"
-	if mode == "Everyone":
+	setting = mode(kind)
+	if setting == "Everyone":
 		return "everyone"
-	if mode == "Guard users":
+	if setting == "Guard users":
 		return "people with a Guard account"
 	full_name = _full_name(repository)
 	if not full_name:

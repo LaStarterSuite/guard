@@ -45,8 +45,11 @@ LEARNING = {
 	"learned": "Guard keeps the reason, and can make it a team memory for later reviews.",
 	"updated": "Guard keeps the new reason in place of your earlier one for this finding.",
 	"kept": "Guard has this reason for this finding already.",
-	"refused": "Guard dismissed the finding, but does not learn from it: the teach setting of the site does "
-	"not include you. A Guard admin can change it in Guard Settings.",
+	"refused": "Guard dismissed the finding, but does not learn from it: your GitHub login does not pass "
+	"Teach Permission in Guard Settings. A Guard admin can change that setting.",
+	"no_login": "Guard dismissed the finding, but does not learn from it: Teach Permission in Guard "
+	"Settings checks your GitHub login, and your Guard User has none. Set GitHub Login on your Guard "
+	"User, or ask a Guard admin to set it, then send the verdict again.",
 	"off": "Learning from activity is off on this site, so Guard does not learn from it.",
 }
 READS_PER_HOUR = 300

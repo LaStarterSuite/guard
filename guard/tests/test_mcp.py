@@ -411,15 +411,68 @@ class TestPullRequestTools(LearningCase):
 		self.call("finding_feedback", finding=finding, verdict="reopen")
 		self.assertEqual(db.value("Review Finding", finding, "status"), "Open")
 
-	def test_a_user_who_cannot_teach_dismisses_but_does_not_teach(self):
+	def test_a_signed_in_user_passes_guard_users_without_a_github_login(self):
 		finding, _thread = self.posted_finding()
 		frappe.db.set_single_value("Guard Settings", "teach_permission", "Guard users")
 		answer = self.call(
 			"finding_feedback", finding=finding, verdict="wrong", reason="This is not a bug at all."
 		)
 		self.assertEqual(answer["structuredContent"]["status"], "Dismissed")
-		self.assertIn("does not learn", answer["structuredContent"]["learning"])
+		self.assertIn("keeps the reason", answer["structuredContent"]["learning"])
+		self.assertTrue(frappe.db.exists("Review Feedback", {"finding": finding, "kind": "Reply"}))
+
+	def test_a_user_without_a_github_login_is_told_to_set_it(self):
+		finding, _thread = self.posted_finding()
+		frappe.db.set_single_value("Guard Settings", "teach_permission", "Organization members")
+		answer = self.call(
+			"finding_feedback", finding=finding, verdict="wrong", reason="This is not a bug at all."
+		)
+		self.assertEqual(answer["structuredContent"]["status"], "Dismissed")
+		self.assertIn("Set GitHub Login on your Guard User", answer["structuredContent"]["learning"])
 		self.assertFalse(frappe.db.exists("Review Feedback", {"finding": finding, "kind": "Reply"}))
+
+	def test_a_user_who_cannot_teach_dismisses_but_does_not_teach(self):
+		finding, _thread = self.posted_finding()
+		frappe.db.set_single_value("Guard Settings", "teach_permission", "Organization members")
+		self.github_login("stranger")
+		with patch.object(self.adapter, "is_member", return_value=False):
+			answer = self.call(
+				"finding_feedback", finding=finding, verdict="wrong", reason="This is not a bug at all."
+			)
+		self.assertEqual(answer["structuredContent"]["status"], "Dismissed")
+		self.assertIn("does not pass Teach Permission", answer["structuredContent"]["learning"])
+		self.assertFalse(frappe.db.exists("Review Feedback", {"finding": finding, "kind": "Reply"}))
+
+	def test_a_member_with_a_github_login_teaches(self):
+		finding, _thread = self.posted_finding()
+		frappe.db.set_single_value("Guard Settings", "teach_permission", "Organization members")
+		self.github_login("ada")
+		answer = self.call(
+			"finding_feedback", finding=finding, verdict="intended", reason="User dicts are copies."
+		)
+		self.assertIn("keeps the reason", answer["structuredContent"]["learning"])
+		self.assertEqual(
+			db.value("Review Feedback", {"finding": finding, "kind": "Reply"}, "author"),
+			"ada",
+		)
+
+	def github_login(self, login: str):
+		"""Give the signed-in user a Guard User with this GitHub login."""
+		# Permission answers stay in Redis for an hour, longer than the test.
+		namespace = self.full_name.split("/")[0]
+		self.addCleanup(cache.delete, f"guard:member:{namespace}:{login}")
+		self.addCleanup(cache.delete, f"guard:writer:{self.full_name}:{login}")
+		user = str(frappe.session.user)
+		# The tests of a class share one transaction, so a later test would see the login.
+		if frappe.db.exists("Guard User", user):
+			earlier = db.value("Guard User", user, "github_login")
+			self.addCleanup(frappe.db.set_value, "Guard User", user, "github_login", earlier)
+			frappe.db.set_value("Guard User", user, "github_login", login)
+		else:
+			self.addCleanup(frappe.delete_doc, "Guard User", user, ignore_permissions=True, force=True)
+			frappe.get_doc({"doctype": "Guard User", "user": user, "github_login": login}).insert(
+				ignore_permissions=True
+			)
 
 	def test_a_branch_of_a_fork_is_not_the_pull_request(self):
 		frappe.db.set_value("Pull Request", self.pr, "head_clone_url", "https://github.com/someone/fork.git")
